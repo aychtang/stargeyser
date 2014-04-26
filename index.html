@@ -4,16 +4,43 @@
     <meta charset="utf-8">
     <title>Stargeyser</title>
     <style>
-			.js-repo-list h2 {
-				pointer-events: none;
-			}
+    .repo-list h2 {
+      display: inline-block;
+      margin: 0 10px 0 0;
+      padding: 5px;
+      background: rgb(139, 185, 255);
+    }
+    .repo-list h2:hover {
+      cursor: pointer;
+      background: rgb(178, 208, 255);
+    }
+    .repo-list span {
+      margin-right: 5px;
+    }
+    .gazebox {
+      display: inline-block;
+      border: 1px solid black;
+      min-width: 300px;
+      min-height: 50px;
+      padding: 10px;
+      background: grey;
+      color: white;
+      font-family: monospace;
+    }
+    .gazebox a {
+      color: rgb(103, 255, 134);
+    }
+    input {
+      display: block;
+    }
     </style>
 </head>
 <body>
     <h1>Stargeyser.</h1>
     <label>User:</label>
     <input class="js-input" type="text">
-    <div class="js-repo-list"></div>
+    <div class="js-description gazebox"></div>
+    <div class="js-repo-list repo-list"></div>
     <script src="bundle.js"></script>
 </body>
 </html>
