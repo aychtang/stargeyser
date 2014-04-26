@@ -39,15 +39,15 @@ var renderRepoList = function(repos) {
   _.each(repos, render);
 };
 
-var showDescription = function(el, a) {
-  debugger;
+var showDescription = function(el, info) {
   el.innerHTML = '';
-  el.innerHTML += a.description + '<br>';
-  el.innerHTML += '<a href=' + a.html_url + '>' + a.html_url + '</a><br>';
-  if (a.language) {
-    el.innerHTML += a.language + '<br>';
+  el.innerHTML += info.full_name + '<br>';
+  el.innerHTML += info.description + '<br>';
+  el.innerHTML += '<a href=' + info.html_url + '>' + info.html_url + '</a><br>';
+  if (info.language) {
+    el.innerHTML += info.language + '<br>';
   }
-  el.innerHTML += '<br>Last updated ' + moment(a.updated_at).fromNow();
+  el.innerHTML += '<br>Last updated ' + moment(info.updated_at).fromNow();
 };
 
 // Partially apply callback to GitHub getRepos function, reducing required
