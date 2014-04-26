@@ -72,7 +72,7 @@ var lookups = Rx.Observable.fromEvent(input, 'keyup')
     return e.target.value;
   })
   .filter(function(text) {
-    return text.length > 2;
+    return text.length > 0;
   })
   .throttle(400)
   .distinctUntilChanged();
