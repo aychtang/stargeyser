@@ -1,4 +1,229 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+// Client code that handles users GitHub "search" requests, and reactively
+// displays data that is returned from github module.
+
+var Rx = require('rx');
+var github = require('./lib/github');
+var partial = require('partial');
+var _ = require('lodash');
+var classlist = require('class-list');
+
+var input = document.querySelector('.js-input');
+var list = document.querySelector('.js-repo-list');
+
+// We want to cache user repo names + descriptions locally as we receive them,
+// eliminating unneeded repeat calls of the GitHub API.
+var storeUserInfo = function(name, data) {
+	localStorage.setItem(name, JSON.stringify(data));
+};
+
+var getUserInfo = function(name) {
+	return JSON.parse(localStorage.getItem(name));
+};
+
+// Creates div and appends to list.
+var render = function(repo) {
+	var node = document.createElement('div');
+	node.className = 'js-repo';
+	node.innerHTML += '<h2>' + repo.name + '</h2>';
+	node.innerHTML += '<div>Stars: ' + repo.stargazers_count + '</div>';
+	node.innerHTML += '<div>Forks: ' + repo.forks + '</div>';
+	node.innerHTML += '<div>Issues: ' + repo.open_issues + '</div>';
+	list.appendChild(node);
+};
+
+var renderRepoList = function(repos) {
+	list.innerHTML = '';
+	_.each(repos, render);
+};
+
+// Partially apply callback to GitHub getRepos function, reducing required
+// arguments to just the GitHub username.
+var getRepos = partial(github.getReposFromUser, function(repos, user) {
+	storeUserInfo(user, {repos: repos});
+	renderRepoList(repos);
+});
+
+// Observable stream of results from input field.
+var lookups = Rx.Observable.fromEvent(input, 'keyup')
+	.map(function(e) {
+    return e.target.value;
+	})
+	.filter(function(text) {
+    return text.length > 2;
+	})
+	.throttle(400)
+	.distinctUntilChanged();
+
+// Pipe valid events to renderUserRepos.
+lookups.subscribe(function(user) {
+	if (!localStorage[user]) {
+		getRepos(user);
+	}
+	else {
+		renderRepoList(getUserInfo(user).repos);
+	}
+});
+
+},{"./lib/github":2,"class-list":4,"lodash":6,"partial":7,"rx":16}],2:[function(require,module,exports){
+// Provides interface for getting required data from github API.
+
+var _ = require('lodash');
+var request = require('./request');
+
+var parseRepos = function(repos) {
+	return _.chain(JSON.parse(repos))
+		.map(function(repo) {
+			return _.pick(repo, ['forks','open_issues', 'stargazers_count', 'name'])
+		})
+		.sortBy('forks')
+		.sortBy('stargazers_count')
+		.reverse()
+		.value()
+		.slice(0, 20);
+};
+
+var getReposFromUser = function(cb, user) {
+	request('https://api.github.com/users/' + user + '/repos?per_page=100', function(data) {
+		cb(parseRepos(data), user);
+	});
+};
+
+var getRepoDescription = function(cb, user, repo) {
+	request('https://api.github.com/repos/' + user + '/' + repo, function(data) {
+		cb(JSON.parse(data), user);
+	});
+};
+
+exports.getReposFromUser = getReposFromUser;
+exports.getRepoDescription = getRepoDescription;
+
+},{"./request":3,"lodash":6}],3:[function(require,module,exports){
+var request = function(url, cb) {
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.open("GET", url, false);
+	xmlhttp.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
+	xmlhttp.onreadystatechange = function() {
+		cb(xmlhttp.response);
+	};
+	xmlhttp.send();
+};
+
+module.exports = request;
+
+},{}],4:[function(require,module,exports){
+// contains, add, remove, toggle
+var indexof = require('indexof')
+
+module.exports = ClassList
+
+function ClassList(elem) {
+    var cl = elem.classList
+
+    if (cl) {
+        return cl
+    }
+
+    var classList = {
+        add: add
+        , remove: remove
+        , contains: contains
+        , toggle: toggle
+        , toString: $toString
+        , length: 0
+        , item: item
+    }
+
+    return classList
+
+    function add(token) {
+        var list = getTokens()
+        if (indexof(list, token) > -1) {
+            return
+        }
+        list.push(token)
+        setTokens(list)
+    }
+
+    function remove(token) {
+        var list = getTokens()
+            , index = indexof(list, token)
+
+        if (index === -1) {
+            return
+        }
+
+        list.splice(index, 1)
+        setTokens(list)
+    }
+
+    function contains(token) {
+        return indexof(getTokens(), token) > -1
+    }
+
+    function toggle(token) {
+        if (contains(token)) {
+            remove(token)
+            return false
+        } else {
+            add(token)
+            return true
+        }
+    }
+
+    function $toString() {
+        return elem.className
+    }
+
+    function item(index) {
+        var tokens = getTokens()
+        return tokens[index] || null
+    }
+
+    function getTokens() {
+        var className = elem.className
+
+        return filter(className.split(" "), isTruthy)
+    }
+
+    function setTokens(list) {
+        var length = list.length
+
+        elem.className = list.join(" ")
+        classList.length = length
+
+        for (var i = 0; i < list.length; i++) {
+            classList[i] = list[i]
+        }
+
+        delete list[length]
+    }
+}
+
+function filter (arr, fn) {
+    var ret = []
+    for (var i = 0; i < arr.length; i++) {
+        if (fn(arr[i])) ret.push(arr[i])
+    }
+    return ret
+}
+
+function isTruthy(value) {
+    return !!value
+}
+
+},{"indexof":5}],5:[function(require,module,exports){
+
+var indexOf = [].indexOf;
+
+module.exports = function(arr, obj){
+  if (indexOf) return arr.indexOf(obj);
+  for (var i = 0; i < arr.length; ++i) {
+    if (arr[i] === obj) return i;
+  }
+  return -1;
+};
+},{}],6:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -6787,73 +7012,33 @@
 }.call(this));
 
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],2:[function(require,module,exports){
-var FUNCTIONS = {};
-
-/**
- * Create a function wrapper that specifies the argument length.
- *
- * @param  {Number}   arity
- * @param  {Function} fn
- * @return {Function}
- */
-module.exports = function (arity, fn) {
-  if (!FUNCTIONS[arity]) {
-    var params = Array(arity + 1).join(', _').substr(2);
-
-    FUNCTIONS[arity] = new Function(
-      'fn',
-      'return function (' + params + ') { return fn.apply(this, arguments); }'
-    );
-  }
-
-  return FUNCTIONS[arity](fn);
+},{}],7:[function(require,module,exports){
+var exports = module.exports = function() {
+	var fn = arguments[0];	
+	var args = [].concat.apply([],arguments).slice(1);
+	return function() {
+		if ((arguments.length + args.length) >= fn.length) {
+			return fn.apply(fn, [].concat.apply(args,arguments));
+		} else {	
+			return exports(fn,[].concat.apply(args,arguments));
+		}
+	};
 };
 
-},{}],3:[function(require,module,exports){
-var __slice = Array.prototype.slice;
-
-/**
- * Generate a function that accepts a variable number of arguments as the last
- * function argument.
- *
- * @param  {Function} fn
- * @return {Function}
- */
-module.exports = function (fn) {
-  var count = Math.max(fn.length - 1, 0);
-
-  return function () {
-    var args = __slice.call(arguments, 0, count);
-
-    // Enforce the array length, in case we don't have enough array padding.
-    args.length = count;
-    args.push(__slice.call(arguments, count));
-
-    return fn.apply(this, args);
-  };
+exports.rapply = function() {
+	var fn = arguments[0];	
+	var args = [].concat.apply([],arguments).slice(1);
+	return function() {
+		var right = [].concat.apply([],arguments);
+		if ((arguments.length + args.length) >= fn.length) {
+			return fn.apply(fn, [].concat.apply(right,args));
+		} else {	
+			return exports.rapply(fn,[].concat.apply(right,args));
+		}
+	};
 };
 
-},{}],4:[function(require,module,exports){
-var arity    = require('arity');
-var variadic = require('variadic');
-
-/**
- * Wrap a function with default arguments for partial application.
- *
- * @param  {Function} fn
- * @param  {*}        ...
- * @return {Function}
- */
-module.exports = variadic(function (fn, args) {
-  var remaining = Math.max(fn.length - args.length, 0);
-
-  return arity(remaining, variadic(function (called) {
-    return fn.apply(this, args.concat(called));
-  }));
-});
-
-},{"arity":2,"variadic":3}],5:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -7540,7 +7725,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],6:[function(require,module,exports){
+},{"./rx":15}],9:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -7871,7 +8056,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],7:[function(require,module,exports){
+},{"./rx":15}],10:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -8272,7 +8457,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],8:[function(require,module,exports){
+},{"./rx":15}],11:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -8836,7 +9021,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],9:[function(require,module,exports){
+},{"./rx":15}],12:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -9528,7 +9713,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],10:[function(require,module,exports){
+},{"./rx":15}],13:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -10002,7 +10187,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],11:[function(require,module,exports){
+},{"./rx":15}],14:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -10420,7 +10605,7 @@ module.exports = variadic(function (fn, args) {
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],12:[function(require,module,exports){
+},{"./rx":15}],15:[function(require,module,exports){
 (function (process,global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -14863,7 +15048,7 @@ module.exports = variadic(function (fn, args) {
     }
 }.call(this));
 }).call(this,require("/usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"/usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":21}],13:[function(require,module,exports){
+},{"/usr/local/lib/node_modules/browserify/node_modules/insert-module-globals/node_modules/process/browser.js":21}],16:[function(require,module,exports){
 var Rx = require('./rx');
 require('./rx.aggregates');
 require('./rx.backpressure');
@@ -15008,7 +15193,7 @@ Rx.Node = {
 };
 
 module.exports = Rx;
-},{"./rx":12,"./rx.aggregates":5,"./rx.async":6,"./rx.backpressure":7,"./rx.binding":8,"./rx.coincidence":9,"./rx.experimental":10,"./rx.joinpatterns":11,"./rx.testing":14,"./rx.time":15,"./rx.virtualtime":16,"events":20}],14:[function(require,module,exports){
+},{"./rx":15,"./rx.aggregates":8,"./rx.async":9,"./rx.backpressure":10,"./rx.binding":11,"./rx.coincidence":12,"./rx.experimental":13,"./rx.joinpatterns":14,"./rx.testing":17,"./rx.time":18,"./rx.virtualtime":19,"events":20}],17:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -15511,7 +15696,7 @@ module.exports = Rx;
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],15:[function(require,module,exports){
+},{"./rx":15}],18:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -16679,7 +16864,7 @@ module.exports = Rx;
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],16:[function(require,module,exports){
+},{"./rx":15}],19:[function(require,module,exports){
 (function (global){
 // Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
 
@@ -17017,92 +17202,7 @@ module.exports = Rx;
     return Rx;
 }));
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./rx":12}],17:[function(require,module,exports){
-// Client code that handles users GitHub "search" requests, and reactively
-// displays data that is returned from github module.
-
-var Rx = require('rx');
-var github = require('./lib/github');
-var partial = require('partial');
-var _ = require('lodash');
-
-var input = document.querySelector('.js-input');
-var list = document.querySelector('.js-repo-list');
-
-var render = function(repo) {
-	var node = document.createElement('div');
-	node.innerHTML += '<h2>' + repo.name + '</h2>';
-	list.appendChild(node);
-};
-
-// Partially apply callback to GitHub getRepos function, reducing required
-// arguments to just the GitHub username.
-var renderUserRepos = partial(github.getReposFromUser, function(repos) {
-	list.innerHTML = '';
-	_.each(repos, render);
-});
-
-// Observable stream of results from input field.
-var lookups = Rx.Observable.fromEvent(input, 'keyup')
-	.map(function(e) {
-    return e.target.value;
-	})
-	.filter(function(text) {
-    return text.length > 2;
-	})
-	.throttle(400)
-	.distinctUntilChanged();
-
-// Pipe valid events to renderUserRepos.
-lookups.subscribe(renderUserRepos);
-
-},{"./lib/github":18,"lodash":1,"partial":4,"rx":13}],18:[function(require,module,exports){
-// Provides interface for getting required data from github API.
-
-var _ = require('lodash');
-var request = require('./request');
-
-var parseRepos = function(repos) {
-	return _.chain(JSON.parse(repos))
-		.map(function(repo) {
-			return _.pick(repo, ['forks','open_issues', 'stargazers_count', 'name'])
-		})
-		.sortBy('forks')
-		.sortBy('stargazers_count')
-		.reverse()
-		.value()
-		.slice(0, 20);
-};
-
-var getReposFromUser = function(cb, user) {
-	request('https://api.github.com/users/' + user + '/repos?per_page=100', function(data) {
-		cb(parseRepos(data));
-	});
-};
-
-var getRepoDescription = function(user, cb, repo) {
-	request('https://api.github.com/repos/' + user + '/' + repo, function(data) {
-		cb(JSON.parse(data));
-	});
-};
-
-exports.getReposFromUser = getReposFromUser;
-exports.getRepoDescription = getRepoDescription;
-
-},{"./request":19,"lodash":1}],19:[function(require,module,exports){
-var request = function(url, cb) {
-	var xmlhttp = new XMLHttpRequest();
-	xmlhttp.open("GET", url, false);
-	xmlhttp.setRequestHeader("Content-Type", "application/json; charset=UTF-8");
-	xmlhttp.onreadystatechange = function() {
-		cb(xmlhttp.response);
-	};
-	xmlhttp.send();
-};
-
-module.exports = request;
-
-},{}],20:[function(require,module,exports){
+},{"./rx":15}],20:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -17459,4 +17559,4 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}]},{},[17])
+},{}]},{},[1])
