@@ -93,14 +93,14 @@ var clicks = Rx.Observable.fromEvent(list, 'click')
     return e.target.tagName === 'H2';
   })
   .subscribe(function(e) {
-    var repoName = e.target.innerText;
+    var repoName = e.target.textContent;
     var userInfo = getUserInfo(currentUser);
     if (!userInfo.descriptions) {
       userInfo.descriptions = {};
       storeUserInfo(currentUser, userInfo);
     }
     if (!userInfo.descriptions[repoName]) {
-      getRepo(currentUser, e.target.innerText);
+      getRepo(currentUser, e.target.textContent);
     }
     else {
       showDescription(descriptionEl, userInfo.descriptions[repoName]);
