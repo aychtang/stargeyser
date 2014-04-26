@@ -29,3 +29,7 @@
 input {
   display: block;
 }
+
+h1 {
+  font-family: sans-serif;
+}
