@@ -1,0 +1,11 @@
+{
+  "name": "stargeyser",
+  "version": "0.0.0",
+  "description": "instant github user repo lookup",
+  "scripts": {
+    "test": "node test/test.js",
+    "build": "browserify frontend.js -o bundle.js"
+  },
+  "author": "",
+  "license": "BSD-2-Clause"
+}
