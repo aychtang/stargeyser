@@ -7,5 +7,11 @@
     "build": "browserify frontend.js -o bundle.js"
   },
   "author": "",
-  "license": "BSD-2-Clause"
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "partial": "0.0.3",
+    "lodash": "~2.4.1",
+    "rx": "~2.2.20",
+    "tape": "~2.12.3"
+  }
 }
