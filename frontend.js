@@ -76,7 +76,7 @@ var lookups = Rx.Observable.fromEvent(input, 'keyup')
   .throttle(400)
   .distinctUntilChanged();
 
-// Pipe valid events to renderUserRepos.
+// Pipe valid events to renderRepoList.
 lookups.subscribe(function(user) {
   if (!localStorage[user]) {
     getRepos(user);
@@ -87,7 +87,9 @@ lookups.subscribe(function(user) {
   currentUser = user;
 });
 
-var clicks = Rx.Observable.fromEvent(list, 'click')
+// Subscribe to event stream of clicks on list, fetch & display
+// required information on valid events.
+Rx.Observable.fromEvent(list, 'click')
   .filter(function(e) {
     return e.target.tagName === 'H2';
   })
